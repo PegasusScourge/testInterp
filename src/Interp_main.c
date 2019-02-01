@@ -2,8 +2,10 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
+
+#define TRUE 1
+#define FALSE 0
 
 void Interp_run(char* f){
 	printf("Starting interpreter: opening file...\n");
@@ -59,28 +61,30 @@ void Interp_run(char* f){
 	printf("***** START *****\n");
 	//Enter interpreter loop
 	Interp_exec(&InterpInfo, numLines);
-	printf("***** END *****\n");
+	printf("\n***** END *****\n");
 
 	//Free our buffer before we leave
 	free(InterpInfo.buff);
 }
 
 void Interp_exec(IntDat_t* store, int numLines){
-	char exit = 0;
-	int currentLine = 0;
+	char exit = FALSE;
+	store->currentLine = 0;
 	
 	OpDat_t op; op.code = NULL;
 	InterpAction_t action;
 	while(!exit && store->pc < store->buffSize){
 		Interp_getOpcode(&op, store->buff, store->pc);
-		printf("[pc=%i] Got opcode %s, len %i", store->pc, op.code, op.len);
+
+		printf("STATUS: [pc=%i,line=%i] Got opcode %s, len %i | OUTPUT: ", store->pc, store->currentLine, op.code, op.len);
+
 		//Do things with opcode
 		//Get the action the opcode string represents
 		action = Interp_opcode(op.code);
 		
-		if(Interp_act(action, store, &op, currentLine) == 1){
+		if(Interp_act(action, store, &op) == ACTION_EXIT){
 			//We recieved an exit code:
-			exit = 1;
+			exit = TRUE;
 		}
 
 		//Clean up:
@@ -93,10 +97,9 @@ void Interp_exec(IntDat_t* store, int numLines){
 		//Increment pc
 		Interp_next(store);
 		//We moved to the next line of the file
-		currentLine++;
-		
+		store->currentLine++;
+
 		printf("\n");
-		sleep(3);
 	}
 }
 
@@ -125,7 +128,56 @@ InterpAction_t Interp_opcode(char* opcode){
 	if(strcmp(opcode, "exit") == 0){
 		return ACTION_EXIT;
 	}
+	if (strcmp(opcode, "echo") == 0) {
+		return ACTION_ECHO;
+	}
+	if (strcmp(opcode, "add") == 0) {
+		return ACTION_ADD_REG;
+	}
+	if (strcmp(opcode, "sub") == 0) {
+		return ACTION_SUB_REG;
+	}
+	if (strcmp(opcode, "mv") == 0) {
+		return ACTION_MV_REG;
+	}
+	if (strcmp(opcode, "set") == 0) {
+		return ACTION_SET_REG;
+	}
+	if (strcmp(opcode, "svm") == 0) {
+		return ACTION_SV_MEM;
+	}
+	if (strcmp(opcode, "rdm") == 0) {
+		return ACTION_RD_MEM;
+	}
+	if (strcmp(opcode, "jmp") == 0) {
+		return ACTION_JMP;
+	}
+	if (strcmp(opcode, "if") == 0) {
+		return ACTION_JMP_IF;
+	}
+	if (strcmp(opcode, "ifn") == 0) {
+		return ACTION_JMP_NIF;
+	}
+	if (strcmp(opcode, "ifl") == 0) {
+		return ACTION_JMP_LT;
+	}
+	if (strcmp(opcode, "ifm") == 0) {
+		return ACTION_JMP_MT;
+	}
+	if (strcmp(opcode, "div") == 0) {
+		return ACTION_DIV_REG;
+	}
+	if (strcmp(opcode, "mul") == 0) {
+		return ACTION_MUL_REG;
+	}
+	if (strcmp(opcode, "bpl") == 0) {
+		return ACTION_BSH_POS;
+	}
+	if (strcmp(opcode, "bmi") == 0) {
+		return ACTION_BSH_NEG;
+	}
 
+	//We don't know what the opcode meant, so we return ACTION_NONE
 	return ACTION_NONE;
 }
 
@@ -146,27 +198,110 @@ void Interp_next(IntDat_t* store){
 	//We should now be at the next opcode
 }
 
-char Interp_act(InterpAction_t action, IntDat_t* s, OpDat_t* op, int currentLine){
+void Interp_last(IntDat_t* store) {
+	char* d = store->buff;
+
+	//Get back before the last ;, at worst case there are 3 characters between us
+	store->pc -= 3;
+
+	//Move onto the ';' terminator of the last command
+	do {
+		store->pc--;
+	} while (d[store->pc] != ';');
+	store->pc++;
+
+	//We should now be at the last opcode
+}
+
+char Interp_act(InterpAction_t action, IntDat_t* s, OpDat_t* op){
 	char returnVal = 0;
 	
 	OpDat_t operand; operand.code = NULL;
+	char regA = 0;
+	char regB = 0;
+	int valA = 0;
+	int valB = 0;
 	
-	int operandLenAccumulator = 0;
+	int operandLenAccumulator = op->len;
 	
 	switch(action){
 
 	case ACTION_HI:
 		//Get the person we are saying hi to:
-		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + op->len);
-		printf(" | Hi to %s !", operand.code);
-	break;
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		printf("Hi to %s!\n", operand.code);
+		break;
+
+	case ACTION_SET_REG:
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		regA = (char)strtol(operand.code, NULL, 10); //Convert operand <1> to a char number (number is in base 10)
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		valA = (int)strtol(operand.code, NULL, 10);
+
+		printf("SET_REG, regA: %i, valA: %i", regA, valA);
+		//Check on write access registers
+		if (regA >= 9 && regA <= 15) {
+			//We can write:
+			s->reg[regA] = valA;
+		}
+		break;
+
+	case ACTION_JMP_NIF:
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		valA = (int)strtol(operand.code, NULL, 10) - 1; //Jmp amount, accounting for the fact that the pc will be incremented after this is processed
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		regA = (char)strtol(operand.code, NULL, 10); //Register 1
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		regB = (char)strtol(operand.code, NULL, 10); //Register 2
+
+		printf("JMP_NIF, valA: %i, regA: %i, regB: %i", valA, regA, regB);
+		//Check for all valid registers
+		if (regA >= 0 && regA <= 15 && regB >= 0 && regB <= 15) {
+			if (s->reg[regA] != s->reg[regB]) {
+				//Jump forward or backwards
+				if (valA < s->currentLine) {
+					//Go backwards
+					printf(" | -ve");
+					while (s->currentLine != valA) {
+						Interp_last(s);
+						s->currentLine--;
+						printf(",%i", s->currentLine);
+					}
+				}
+				else {
+					//Go forwards
+					printf(" | +ve");
+					while (s->currentLine != valA) {
+						Interp_next(s);
+						s->currentLine++;
+						printf(",%i", s->currentLine);
+					}
+				}
+			}
+		}
+		break;
+
+	case ACTION_ADD_REG:
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		regA = (char)strtol(operand.code, NULL, 10); //Register 1
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		regB = (int)strtol(operand.code, NULL, 10); //Register 2
+
+		printf("ADD_REG, regA: %i, regB: %i", regA, regB);
+		//Check write access on regA, then read access on regB
+		if (regA >= 9 && regA <= 15 && regB >= 0 && regB <= 15) {
+			//We can write:
+			s->reg[regA] += s->reg[regB];
+		}
+		break;
 	
 	case ACTION_EXIT:
-		returnVal = 1;
-	break;
+		printf("EXIT");
+		returnVal = ACTION_EXIT;
+		break;
 
 	default:
-	break;
+		break;
 
 	}
 	

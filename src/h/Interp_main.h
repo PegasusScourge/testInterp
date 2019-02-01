@@ -11,6 +11,7 @@ enum InterpAction{
 	ACTION_NONE, //No action
 	ACTION_EXIT, //Exit, "exit"
 	ACTION_HI, //Send a hi to <operand>, "hello <operand>"
+	ACTION_ECHO, //Echo the following text to the user, "echo <text>"
 	ACTION_ADD_REG, //Add reg <2> to <1> and store in <1>, "add <1> <2>"
 	ACTION_SUB_REG, //Subtract reg <2> from <1> and store in <1>, "sub <1> <2>"
 	ACTION_MV_REG, //Move value of register <1> to register <2>, "mv <1> <2>"
@@ -46,10 +47,13 @@ struct InterpData{
 		0 = always 0
 		1 = memory address currently set
 		2 = overflow
-		3 - 8 = reserved for future use
+		3 = Error register
+		4 - 8 = reserved for future use
 		9 - 15 = code use
 	*/
 	int pc; //Program counter
+
+	int currentLine;
 };
 
 /* Loads and runs the interpreter */
@@ -68,8 +72,11 @@ void Interp_getOpcode(OpDat_t*, char*, int);
 /* Gets the next pc point offset */
 void Interp_next(IntDat_t*);
 
+/* Gets the last pc point offset */
+void Interp_last(IntDat_t*);
+
 /* Does the actual execution of opcodes */
-char Interp_act(InterpAction_t, IntDat_t*, OpDat_t*, int);
+char Interp_act(InterpAction_t, IntDat_t*, OpDat_t*);
 
 /* Gets the next operand in the current instruction, returns the length of the operand (also stored in OpDat_t) */
 int Interp_getNextOperand(OpDat_t*, char*, int);
