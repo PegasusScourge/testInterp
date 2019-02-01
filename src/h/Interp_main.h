@@ -56,7 +56,7 @@ struct InterpData{
 void Interp_run(char*);
 
 /* Executes interpreter */
-void Interp_exec(IntDat_t*);
+void Interp_exec(IntDat_t*, int);
 
 /* Takes a code and converts to an action enum */
 InterpAction_t Interp_opcode(char*);
