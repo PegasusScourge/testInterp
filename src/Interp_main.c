@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
 
 void Interp_run(char* f){
 	printf("Starting interpreter: opening file...\n");
@@ -21,7 +22,7 @@ void Interp_run(char* f){
 	long int fpSize = ftell(fp);
 	rewind(fp);
 	
-	struct InterpData InterpInfo;
+	IntDat_t InterpInfo;
 	InterpInfo.pc = 0;
 	//Assign memory
 	InterpInfo.buffSize = fpSize*sizeof(char);
@@ -35,7 +36,10 @@ void Interp_run(char* f){
 	}
 	printf("Buffer of %i bytes prepared\n", InterpInfo.buffSize);
 	//Read content to buff
-	fgets(InterpInfo.buff, InterpInfo.buffSize, fp);
+	for(int i=0; i < InterpInfo.buffSize; i++){
+		InterpInfo.buff[i] = fgetc(fp);
+	}
+	InterpInfo.buff[InterpInfo.buffSize - 1] = '\0';
 	//Read the content back to the user:
 	printf("Got file content:\n");
 	printf("%s", InterpInfo.buff);
@@ -52,85 +56,144 @@ void Interp_run(char* f){
 	fclose(fp);
 	fp = NULL;
 
+	printf("***** START *****\n");
 	//Enter interpreter loop
-	Interp_exec(&InterpInfo);
+	Interp_exec(&InterpInfo, numLines);
+	printf("***** END *****\n");
 
 	//Free our buffer before we leave
 	free(InterpInfo.buff);
 }
 
-void Interp_exec(struct InterpData* store){
+void Interp_exec(IntDat_t* store, int numLines){
 	char exit = 0;
-	OpDat_t* op;
+	int currentLine = 0;
+	
+	OpDat_t op; op.code = NULL;
 	InterpAction_t action;
 	while(!exit && store->pc < store->buffSize){
-		op = Interp_getOpcode(store->buff, store->pc);
-		printf("Got opcode %s, len %i\n", op->code, op->len);
+		Interp_getOpcode(&op, store->buff, store->pc);
+		printf("[pc=%i] Got opcode %s, len %i", store->pc, op.code, op.len);
 		//Do things with opcode
 		//Get the action the opcode string represents
-		action = Interp_opcode(op->code);
+		action = Interp_opcode(op.code);
 		
-		
-		Interp_act(action, store);
+		if(Interp_act(action, store, &op, currentLine) == 1){
+			//We recieved an exit code:
+			exit = 1;
+		}
 
 		//Clean up:
 		//Free opcode
-		free(op->code);
-		free(op);
+		if(op.code){
+			free(op.code);
+			op.code = NULL;
+		}
 
 		//Increment pc
-		int pcInc = Interp_next(store->buff, store->pc);
-		if(pcInc == 0)
-			exit = 1;
-
-		store->pc += pcInc;
-
-		printf("pc=%i, pcInc=%i\n", store->pc, pcInc);
+		Interp_next(store);
+		//We moved to the next line of the file
+		currentLine++;
+		
+		printf("\n");
 		sleep(3);
 	}
 }
 
-OpDat_t* Interp_getOpcode(char* d, int s){
+void Interp_getOpcode(OpDat_t* opdat, char* d, int s){
 	int e=0;
-	while(d[s+e] != ' '){
+	while(d[s+e] != ' ' && d[s+e] != ';'){
 		e++;
 	}
 	//Add space for null terminator
 	e++;
-	OpDat_t* dat = malloc(sizeof(OpDat_t));
-	dat->code = malloc(e*sizeof(char));
-	memcpy(dat->code, &d[s], e-1);
-	dat->code[e-1] = '\0';
-	dat->len = e;
+	if(opdat->code){
+		free(opdat->code);
+		opdat->code = NULL;
+	}
+	opdat->code = malloc(e*sizeof(char));
+	memcpy(opdat->code, &d[s], e-1);
+	opdat->code[e-1] = '\0';
+	opdat->len = e;
 	//printf("Opcode len %i\n", e);
-	return dat;
 }
 
 InterpAction_t Interp_opcode(char* opcode){
 	if(strcmp(opcode, "hello") == 0){
 		return ACTION_HI;
 	}
+	if(strcmp(opcode, "exit") == 0){
+		return ACTION_EXIT;
+	}
 
 	return ACTION_NONE;
 }
 
-int Interp_next(char* d, int s){
-	int e=0;
-	while(d[s+e] != '\n'){
-		e++;
-	}
-	return e;
+void Interp_next(IntDat_t* store){
+	char* d = store->buff;
+	
+	//Move onto the ';' terminator of the current command
+	do{
+		store->pc++;
+	}while(d[store->pc] != ';');
+	
+	//Move until we are off of \n or \r values
+	do{
+		store->pc++;
+	}while(d[store->pc] != '\n');
+	store->pc++;
+	
+	//We should now be at the next opcode
 }
 
-void Interp_act(InterpAction_t action, struct InterpData* s){
+char Interp_act(InterpAction_t action, IntDat_t* s, OpDat_t* op, int currentLine){
+	char returnVal = 0;
+	
+	OpDat_t operand; operand.code = NULL;
+	
+	int operandLenAccumulator = 0;
+	
 	switch(action){
 
 	case ACTION_HI:
-		printf("Hi!\n");
+		//Get the person we are saying hi to:
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + op->len);
+		printf(" | Hi to %s !", operand.code);
+	break;
+	
+	case ACTION_EXIT:
+		returnVal = 1;
 	break;
 
 	default:
 	break;
 
 	}
+	
+	//Free operand if not already
+	if(operand.code){
+		free(operand.code);
+		operand.code = NULL;
+	}
+	
+	return returnVal;
+}
+
+int Interp_getNextOperand(OpDat_t* opdat, char* d, int s){
+	int e=0;
+	while(d[s+e] != ' ' && d[s+e] != ';'){
+		e++;
+	}
+	//Add space for null terminator
+	e++;
+	if(opdat->code){
+		free(opdat->code);
+		opdat->code = NULL;
+	}
+	opdat->code = malloc(e*sizeof(char));
+	memcpy(opdat->code, &d[s], e-1);
+	opdat->code[e-1] = '\0';
+	opdat->len = e;
+	
+	return e;
 }
