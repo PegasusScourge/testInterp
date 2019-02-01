@@ -7,6 +7,13 @@
 #define TRUE 1
 #define FALSE 0
 
+#define I_DEBUG Interp_DEBUG
+char Interp_DEBUG = FALSE;
+
+void Interp_isDebug(char d) {
+	I_DEBUG = d;
+}
+
 void Interp_run(char* f){
 	printf("Starting interpreter: opening file...\n");
 	//check the file exists
@@ -36,15 +43,21 @@ void Interp_run(char* f){
 		fclose(fp);
 		return;
 	}
-	printf("Buffer of %i bytes prepared\n", InterpInfo.buffSize);
+
+	if (I_DEBUG)
+		printf("Buffer of %i bytes prepared\n", InterpInfo.buffSize);
+
 	//Read content to buff
 	for(int i=0; i < InterpInfo.buffSize; i++){
 		InterpInfo.buff[i] = fgetc(fp);
 	}
 	InterpInfo.buff[InterpInfo.buffSize - 1] = '\0';
+
 	//Read the content back to the user:
-	printf("Got file content:\n");
-	printf("%s", InterpInfo.buff);
+	if (I_DEBUG) {
+		printf("Got file content:\n");
+		printf("%s", InterpInfo.buff);
+	}
 
 	//Count number of lines
 	int numLines = 0;
@@ -52,7 +65,9 @@ void Interp_run(char* f){
 		if(InterpInfo.buff[i] == '\n')
 			numLines++;
 	}
-	printf("%i lines in file\n", numLines);
+
+	if (I_DEBUG)
+		printf("%i lines in file\n", numLines);
 
 	//Close file
 	fclose(fp);
@@ -61,7 +76,7 @@ void Interp_run(char* f){
 	printf("***** START *****\n");
 	//Enter interpreter loop
 	Interp_exec(&InterpInfo, numLines);
-	printf("\n***** END *****\n");
+	printf("***** END *****\n");
 
 	//Free our buffer before we leave
 	free(InterpInfo.buff);
@@ -76,7 +91,8 @@ void Interp_exec(IntDat_t* store, int numLines){
 	while(!exit && store->pc < store->buffSize){
 		Interp_getOpcode(&op, store->buff, store->pc);
 
-		printf("STATUS: [pc=%i,line=%i] Got opcode %s, len %i | OUTPUT: ", store->pc, store->currentLine, op.code, op.len);
+		if(I_DEBUG)
+			printf("STATUS: [pc=%i,line=%i] Got opcode %s, len %i | OUTPUT: ", store->pc, store->currentLine, op.code, op.len);
 
 		//Do things with opcode
 		//Get the action the opcode string represents
@@ -99,7 +115,8 @@ void Interp_exec(IntDat_t* store, int numLines){
 		//We moved to the next line of the file
 		store->currentLine++;
 
-		printf("\n");
+		if(I_DEBUG)
+			printf("\n");
 	}
 }
 
@@ -128,7 +145,7 @@ InterpAction_t Interp_opcode(char* opcode){
 	if(strcmp(opcode, "exit") == 0){
 		return ACTION_EXIT;
 	}
-	if (strcmp(opcode, "echo") == 0) {
+	if (strcmp(opcode, "con") == 0) {
 		return ACTION_ECHO;
 	}
 	if (strcmp(opcode, "add") == 0) {
@@ -213,6 +230,25 @@ void Interp_last(IntDat_t* store) {
 	//We should now be at the last opcode
 }
 
+int Interp_getNextOperand(OpDat_t* opdat, char* d, int s) {
+	int e = 0;
+	while (d[s + e] != ' ' && d[s + e] != ';') {
+		e++;
+	}
+	//Add space for null terminator
+	e++;
+	if (opdat->code) {
+		free(opdat->code);
+		opdat->code = NULL;
+	}
+	opdat->code = malloc(e * sizeof(char));
+	memcpy(opdat->code, &d[s], e - 1);
+	opdat->code[e - 1] = '\0';
+	opdat->len = e;
+
+	return e;
+}
+
 char Interp_act(InterpAction_t action, IntDat_t* s, OpDat_t* op){
 	char returnVal = 0;
 	
@@ -229,8 +265,30 @@ char Interp_act(InterpAction_t action, IntDat_t* s, OpDat_t* op){
 	case ACTION_HI:
 		//Get the person we are saying hi to:
 		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
-		printf("Hi to %s!\n", operand.code);
+		printf("Hi to %s!", operand.code);
+
+		if (!I_DEBUG)
+			printf("\n");
 		break;
+
+	case ACTION_ECHO: {
+		//Loop to find the end of the statement
+		int end = op->len + s->pc;
+		while (s->buff[end] != ';') {
+			end++;
+		}
+
+		if(I_DEBUG)
+			printf("ECHO\n");
+
+		//Having discovered the end of the statement, now print the content
+		for (int i = op->len + s->pc; i < end; i++) {
+			printf("%c", s->buff[i]);
+		}
+
+		if (!I_DEBUG)
+			printf("\n");
+	}	break;
 
 	case ACTION_SET_REG:
 		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
@@ -238,7 +296,8 @@ char Interp_act(InterpAction_t action, IntDat_t* s, OpDat_t* op){
 		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
 		valA = (int)strtol(operand.code, NULL, 10);
 
-		printf("SET_REG, regA: %i, valA: %i", regA, valA);
+		if(I_DEBUG)
+			printf("SET_REG, regA: %i, valA: %i", regA, valA);
 		//Check on write access registers
 		if (regA >= 9 && regA <= 15) {
 			//We can write:
@@ -254,27 +313,37 @@ char Interp_act(InterpAction_t action, IntDat_t* s, OpDat_t* op){
 		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
 		regB = (char)strtol(operand.code, NULL, 10); //Register 2
 
-		printf("JMP_NIF, valA: %i, regA: %i, regB: %i", valA, regA, regB);
+		if(I_DEBUG)
+			printf("JMP_NIF, valA: %i, regA: %i, regB: %i", valA, regA, regB);
+
 		//Check for all valid registers
 		if (regA >= 0 && regA <= 15 && regB >= 0 && regB <= 15) {
 			if (s->reg[regA] != s->reg[regB]) {
 				//Jump forward or backwards
 				if (valA < s->currentLine) {
 					//Go backwards
-					printf(" | -ve");
+					if(I_DEBUG)
+						printf(" | -ve");
+
 					while (s->currentLine != valA) {
 						Interp_last(s);
 						s->currentLine--;
-						printf(",%i", s->currentLine);
+
+						if(I_DEBUG)
+							printf(",%i", s->currentLine);
 					}
 				}
 				else {
 					//Go forwards
-					printf(" | +ve");
+					if(I_DEBUG)
+						printf(" | +ve");
+
 					while (s->currentLine != valA) {
 						Interp_next(s);
 						s->currentLine++;
-						printf(",%i", s->currentLine);
+
+						if(I_DEBUG)
+							printf(",%i", s->currentLine);
 					}
 				}
 			}
@@ -287,7 +356,9 @@ char Interp_act(InterpAction_t action, IntDat_t* s, OpDat_t* op){
 		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
 		regB = (int)strtol(operand.code, NULL, 10); //Register 2
 
-		printf("ADD_REG, regA: %i, regB: %i", regA, regB);
+		if(I_DEBUG)
+			printf("ADD_REG, regA: %i, regB: %i", regA, regB);
+
 		//Check write access on regA, then read access on regB
 		if (regA >= 9 && regA <= 15 && regB >= 0 && regB <= 15) {
 			//We can write:
@@ -296,11 +367,19 @@ char Interp_act(InterpAction_t action, IntDat_t* s, OpDat_t* op){
 		break;
 	
 	case ACTION_EXIT:
-		printf("EXIT");
+		if(I_DEBUG)
+			printf("EXIT");
+
 		returnVal = ACTION_EXIT;
 		break;
 
+	case ACTION_NONE:
+		//Do nothing as instructed
+		break;
+
 	default:
+		if (I_DEBUG)
+			printf("Opcode not implemented yet");
 		break;
 
 	}
@@ -312,23 +391,4 @@ char Interp_act(InterpAction_t action, IntDat_t* s, OpDat_t* op){
 	}
 	
 	return returnVal;
-}
-
-int Interp_getNextOperand(OpDat_t* opdat, char* d, int s){
-	int e=0;
-	while(d[s+e] != ' ' && d[s+e] != ';'){
-		e++;
-	}
-	//Add space for null terminator
-	e++;
-	if(opdat->code){
-		free(opdat->code);
-		opdat->code = NULL;
-	}
-	opdat->code = malloc(e*sizeof(char));
-	memcpy(opdat->code, &d[s], e-1);
-	opdat->code[e-1] = '\0';
-	opdat->len = e;
-	
-	return e;
 }

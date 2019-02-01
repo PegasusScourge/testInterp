@@ -56,6 +56,8 @@ struct InterpData{
 	int currentLine;
 };
 
+void Interp_isDebug(char);
+
 /* Loads and runs the interpreter */
 void Interp_run(char*);
 

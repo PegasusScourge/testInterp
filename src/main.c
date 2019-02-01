@@ -2,6 +2,7 @@
 #include "h/Interp_main.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 
 int main(int argc, char** argv){
 	printf("Got argv:\n");
@@ -13,7 +14,12 @@ int main(int argc, char** argv){
 	if(argc == 2){
 		//We got the second arg which specifies our file to interpret
 		Interp_run(argv[1]);
-	} else {
+	} else if(argc == 3){
+		//Got a third argument, so set the debug flag
+		Interp_isDebug((char)strtol(argv[2], NULL, 10));
+		Interp_run(argv[1]);
+	}
+	else {
 		printf("Not enough args!\n");
 	}
 

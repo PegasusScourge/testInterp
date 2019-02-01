@@ -1,8 +1,8 @@
-hello Jakey;
+hello Person;
 set 9 1;
 set 10 0;
 set 11 1000;
 add 10 9;
 ifn 4 10 11;
-hello Exit;
+con We are now done, thank you for being here!;
 exit;
