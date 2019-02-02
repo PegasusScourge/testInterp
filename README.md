@@ -45,20 +45,20 @@ Instructions:
 | Command | Details |
 | --- | --- |
 | exit; | Exits the currently running program. Takes no operands |
-| hello \<person\>; | Says hello in the console to \<person\>. \<person\> may not contain spaces |
-| con \<text\>; | Prints \<text\> to the console. \<text\> may contain spaces |
-| add \<r1\> \<r2\>; | Adds the value of \<r2\> to \<r1\>. Stores in \<r1\> |
-| sub \<r1\> \<r2\>; | Subtracts the value of \<r2\> from \<r1\>. Stores in \<r1\> |
-| div \<r1\> \<r2\>; | Divides register \<r1\> by \<r2\>, stores in \<r1\> and puts the remainder in r[2] |
-| mul \<r1\> \<r2\>; | Multiplies register \<r1\> by \<r2\> and stores in \<r1\> |
-| bpl \<r1\> \<r2\>; | Bit-shifts up (<<) the value of \<r1\> by valueof(\<r2\>) bits , e.g. `bpl 9 10` bitshifts up r[9] by the value of r[10] |
-| bmi \<r1\> \<r2\>; | Bit-shifts down (>>) the value of \<r1\> by valueof(\<r2\>) bits , e.g. `bpl 9 10` bitshifts down r[9] by the value of r[10] |
-| mv \<r1\> \<r2\>; | Moves the value of \<r2\> to \<r1\> |
-| set \<r1\> \<num\>; | Sets the value of \<r1\> to \<num\>. \<num\> is an integer |
-| svm \<r1\>; | Saves the value of \<r1\> to the memory address pointed to by r[1] |
-| rdm \<r1\>; | Reads the value of memory pointed to by r[1] and stores in \<r1\> |
-| jmp \<ln\>; | Jumps to line \<ln\> of the program |
-| ife \<ln\> \<r1\> \<r2\>; | Jumps to line \<ln\> of the program if \<r1\> == \<r2\> |
-| ifn \<ln\> \<r1\> \<r2\>; | Jumps to line \<ln\> of the program if \<r1\> != \<r2\> |
-| ifl \<ln\> \<r1\> \<r2\>; | Jumps to line \<ln\> of the program if \<r1\> < \<r2\> |
-| ifm \<ln\> \<r1\> \<r2\>; | Jumps to line \<ln\> of the program if \<r1\> > \<r2\> |
+| hello [person]; | Says hello in the console to [person]. [person] may not contain spaces |
+| con [text]; | Prints [text] to the console. [text] may contain spaces |
+| add [r1] [r2]; | Adds the value of [r2] to [r1]. Stores in [r1] |
+| sub [r1] [r2]; | Subtracts the value of [r2] from [r1]. Stores in [r1] |
+| div [r1] [r2]; | Divides register [r1] by [r2], stores in [r1] and puts the remainder in r[2] |
+| mul [r1] [r2]; | Multiplies register [r1] by [r2] and stores in [r1] |
+| bpl [r1] [r2]; | Bit-shifts up (<<) the value of [r1] by valueof([r2]) bits , e.g. `bpl 9 10` bitshifts up r[9] by the value of r[10] |
+| bmi [r1] [r2]; | Bit-shifts down (>>) the value of [r1] by valueof([r2]) bits , e.g. `bpl 9 10` bitshifts down r[9] by the value of r[10] |
+| mv [r1] [r2]; | Moves the value of [r2] to [r1] |
+| set [r1] [num]; | Sets the value of [r1] to [num]. [num] is an integer |
+| svm [r1]; | Saves the value of [r1] to the memory address pointed to by r[1] |
+| rdm [r1]; | Reads the value of memory pointed to by r[1] and stores in [r1] |
+| jmp [ln]; | Jumps to line [ln] of the program |
+| ife [ln] [r1] [r2]; | Jumps to line [ln] of the program if [r1] == [r2] |
+| ifn [ln] [r1] [r2]; | Jumps to line [ln] of the program if [r1] != [r2] |
+| ifl [ln] [r1] [r2]; | Jumps to line [ln] of the program if [r1] < [r2] |
+| ifm [ln] [r1] [r2]; | Jumps to line [ln] of the program if [r1] > [r2] |
