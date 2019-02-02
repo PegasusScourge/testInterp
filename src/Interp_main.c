@@ -28,7 +28,7 @@ void Interp_run(char* f){
 	
 	//Get the size of the file
 	fseek(fp, 0L, SEEK_END);
-	long int fpSize = ftell(fp);
+	long fpSize = (long)ftell(fp);
 	rewind(fp);
 	
 	IntDat_t InterpInfo;
@@ -85,6 +85,7 @@ void Interp_run(char* f){
 void Interp_exec(IntDat_t* store, int numLines){
 	char exit = FALSE;
 	store->currentLine = 0;
+	store->reg[0] = 0;
 	
 	OpDat_t op; op.code = NULL;
 	InterpAction_t action;
@@ -169,7 +170,7 @@ InterpAction_t Interp_opcode(char* opcode){
 	if (strcmp(opcode, "jmp") == 0) {
 		return ACTION_JMP;
 	}
-	if (strcmp(opcode, "if") == 0) {
+	if (strcmp(opcode, "ife") == 0) {
 		return ACTION_JMP_IF;
 	}
 	if (strcmp(opcode, "ifn") == 0) {
@@ -192,6 +193,18 @@ InterpAction_t Interp_opcode(char* opcode){
 	}
 	if (strcmp(opcode, "bmi") == 0) {
 		return ACTION_BSH_NEG;
+	}
+	if (strcmp(opcode, "conr") == 0) {
+		return ACTION_ECHOR;
+	}
+	if (strcmp(opcode, "mod") == 0) {
+		return ACTION_MOD_REG;
+	}
+	if (strcmp(opcode, "jmpr") == 0) {
+		return ACTION_JMP_REL;
+	}
+	if (strcmp(opcode, "addn") == 0) {
+		return ACTION_ADD_NUM;
 	}
 
 	//We don't know what the opcode meant, so we return ACTION_NONE
@@ -278,6 +291,34 @@ void Interp_execJmp(int jmpTo, IntDat_t* s) {
 	}
 }
 
+char Interp_regWritePerm(char reg) {
+	if (reg == 1 || (reg >= 9 && reg <= 15))
+		return TRUE;
+	return FALSE;
+}
+
+char Interp_regReadPerm(char reg) {
+	if (reg >= 0 && reg <= 15)
+		return TRUE;
+	return FALSE;
+}
+
+void Interp_memOpRead(IntDat_t* s, char reg) {
+	//Check that the memory position selected is valid
+	if (s->reg[1] >= 0 && s->reg[1] < INTERP_MEM_SIZE) {
+		//Perform read into reg
+		s->reg[reg] = s->memory[s->reg[1]];
+	}
+}
+
+void Interp_memOpWrite(IntDat_t* s, char reg) {
+	//Check that the memory position selected is valid
+	if (s->reg[1] >= 0 && s->reg[1] < INTERP_MEM_SIZE) {
+		//Perform write to memory
+		s->memory[s->reg[1]] = s->reg[reg];
+	}
+}
+
 char Interp_act(InterpAction_t action, IntDat_t* s, OpDat_t* op){
 	char returnVal = 0;
 	
@@ -285,7 +326,7 @@ char Interp_act(InterpAction_t action, IntDat_t* s, OpDat_t* op){
 	char regA = 0;
 	char regB = 0;
 	int valA = 0;
-	int valB = 0;
+	//int valB = 0;
 	
 	int operandLenAccumulator = op->len;
 	
@@ -319,6 +360,20 @@ char Interp_act(InterpAction_t action, IntDat_t* s, OpDat_t* op){
 			printf("\n");
 	}	break;
 
+	case ACTION_ECHOR: {
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		regA = (char)strtol(operand.code, NULL, 10); //Convert operand <1> to a char number (number is in base 10)
+
+		if (I_DEBUG)
+			printf("ECHOR\n");
+
+		if(Interp_regReadPerm(regA))
+			printf("Register %i has value %i", regA, s->reg[regA]);
+
+		if (!I_DEBUG)
+			printf("\n");
+	}	break;
+
 	case ACTION_SET_REG:
 		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
 		regA = (char)strtol(operand.code, NULL, 10); //Convert operand <1> to a char number (number is in base 10)
@@ -328,7 +383,7 @@ char Interp_act(InterpAction_t action, IntDat_t* s, OpDat_t* op){
 		if(I_DEBUG)
 			printf("SET_REG, regA: %i, valA: %i", regA, valA);
 		//Check on write access registers
-		if (regA >= 9 && regA <= 15) {
+		if (Interp_regWritePerm(regA)) {
 			//We can write:
 			s->reg[regA] = valA;
 		}
@@ -346,12 +401,116 @@ char Interp_act(InterpAction_t action, IntDat_t* s, OpDat_t* op){
 			printf("JMP_NIF, valA: %i, regA: %i, regB: %i", valA, regA, regB);
 
 		//Check for all valid registers
-		if (regA >= 0 && regA <= 15 && regB >= 0 && regB <= 15) {
+		if (Interp_regReadPerm(regA) && Interp_regReadPerm(regB)) {
 			if (s->reg[regA] != s->reg[regB]) {
 				//Jump forward or backwards
 				Interp_execJmp(valA, s);
 			}
 		}
+		break;
+
+	case ACTION_JMP_IF:
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		valA = (int)strtol(operand.code, NULL, 10) - 1; //Jmp amount, accounting for the fact that the pc will be incremented after this is processed
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		regA = (char)strtol(operand.code, NULL, 10); //Register 1
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		regB = (char)strtol(operand.code, NULL, 10); //Register 2
+
+		if (I_DEBUG)
+			printf("JMP_IF, valA: %i, regA: %i, regB: %i", valA, regA, regB);
+
+		//Check for all valid registers
+		if (Interp_regReadPerm(regA) && Interp_regReadPerm(regB)) {
+			if (s->reg[regA] == s->reg[regB]) {
+				//Jump forward or backwards
+				Interp_execJmp(valA, s);
+			}
+		}
+		break;
+
+	case ACTION_JMP_LT:
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		valA = (int)strtol(operand.code, NULL, 10) - 1; //Jmp amount, accounting for the fact that the pc will be incremented after this is processed
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		regA = (char)strtol(operand.code, NULL, 10); //Register 1
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		regB = (char)strtol(operand.code, NULL, 10); //Register 2
+
+		if (I_DEBUG)
+			printf("JMP_LT, valA: %i, regA: %i, regB: %i", valA, regA, regB);
+
+		//Check for all valid registers
+		if (Interp_regReadPerm(regA) && Interp_regReadPerm(regB)) {
+			if (s->reg[regA] < s->reg[regB]) {
+				//Jump forward or backwards
+				Interp_execJmp(valA, s);
+			}
+		}
+		break;
+
+	case ACTION_JMP_MT:
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		valA = (int)strtol(operand.code, NULL, 10) - 1; //Jmp amount, accounting for the fact that the pc will be incremented after this is processed
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		regA = (char)strtol(operand.code, NULL, 10); //Register 1
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		regB = (char)strtol(operand.code, NULL, 10); //Register 2
+
+		if (I_DEBUG)
+			printf("JMP_MT, valA: %i, regA: %i, regB: %i", valA, regA, regB);
+
+		//Check for all valid registers
+		if (Interp_regReadPerm(regA) && Interp_regReadPerm(regB)) {
+			if (s->reg[regA] > s->reg[regB]) {
+				//Jump forward or backwards
+				Interp_execJmp(valA, s);
+			}
+		}
+		break;
+
+	case ACTION_RD_MEM:
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		regA = (char)strtol(operand.code, NULL, 10); //Register 1
+
+		if (I_DEBUG)
+			printf("MEM_RD, regA: %i", regA);
+
+		if (Interp_regWritePerm(regA)) {
+			Interp_memOpRead(s, regA);
+		}
+		break;
+
+	case ACTION_SV_MEM:
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		regA = (char)strtol(operand.code, NULL, 10); //Register 1
+
+		if (I_DEBUG)
+			printf("MEM_SV, regA: %i", regA);
+
+		if (Interp_regReadPerm(regA)) {
+			Interp_memOpWrite(s, regA);
+		}
+		break;
+
+	case ACTION_JMP:
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		valA = (int)strtol(operand.code, NULL, 10) - 1; //Jmp amount, accounting for the fact that the pc will be incremented after this is processed
+
+		if (I_DEBUG)
+			printf("JMP, valA: %i", valA);
+
+		Interp_execJmp(valA, s);
+		break;
+
+	case ACTION_JMP_REL:
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		valA = (int)strtol(operand.code, NULL, 10) - 1; //Jmp amount, accounting for the fact that the pc will be incremented after this is processed
+
+		if (I_DEBUG)
+			printf("JMP_REL, valA: %i", valA);
+
+		Interp_execJmp(s->currentLine + valA, s);
 		break;
 
 	case ACTION_ADD_REG:
@@ -364,9 +523,140 @@ char Interp_act(InterpAction_t action, IntDat_t* s, OpDat_t* op){
 			printf("ADD_REG, regA: %i, regB: %i", regA, regB);
 
 		//Check write access on regA, then read access on regB
-		if (regA >= 9 && regA <= 15 && regB >= 0 && regB <= 15) {
+		if (Interp_regWritePerm(regA) && Interp_regReadPerm(regB)) {
 			//We can write:
 			s->reg[regA] += s->reg[regB];
+		}
+		break;
+
+	case ACTION_ADD_NUM:
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		regA = (char)strtol(operand.code, NULL, 10); //Register 1
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		valA = (int)strtol(operand.code, NULL, 10); //Register 2
+
+		if (I_DEBUG)
+			printf("ADD_NUM, regA: %i, valA: %i", regA, valA);
+
+		//Check write access on regA
+		if (Interp_regWritePerm(regA)) {
+			//We can write:
+			s->reg[regA] += valA;
+		}
+		break;
+
+	case ACTION_SUB_REG:
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		regA = (char)strtol(operand.code, NULL, 10); //Register 1
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		regB = (int)strtol(operand.code, NULL, 10); //Register 2
+
+		if (I_DEBUG)
+			printf("SUB_REG, regA: %i, regB: %i", regA, regB);
+
+		//Check write access on regA, then read access on regB
+		if (Interp_regWritePerm(regA) && Interp_regReadPerm(regB)) {
+			//We can write:
+			s->reg[regA] -= s->reg[regB];
+		}
+		break;
+
+	case ACTION_MV_REG:
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		regA = (char)strtol(operand.code, NULL, 10); //Register 1
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		regB = (int)strtol(operand.code, NULL, 10); //Register 2
+
+		if (I_DEBUG)
+			printf("MV_REG, regA: %i, regB: %i", regA, regB);
+
+		//Check write access on regA, then read access on regB
+		if (Interp_regWritePerm(regA) && Interp_regReadPerm(regB)) {
+			//We can write:
+			s->reg[regA] = s->reg[regB];
+		}
+		break;
+
+	case ACTION_DIV_REG:
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		regA = (char)strtol(operand.code, NULL, 10); //Register 1
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		regB = (int)strtol(operand.code, NULL, 10); //Register 2
+
+		if (I_DEBUG)
+			printf("DIV_REG, regA: %i, regB: %i", regA, regB);
+
+		//Check write access on regA, then read access on regB
+		if (Interp_regWritePerm(regA) && Interp_regReadPerm(regB)) {
+			//We can write:
+			s->reg[regA] /= s->reg[regB];
+
+			//Set the overflow reg to regA % regB
+			s->reg[2] = s->reg[regA] % s->reg[regB];
+		}
+		break;
+
+	case ACTION_MUL_REG:
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		regA = (char)strtol(operand.code, NULL, 10); //Register 1
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		regB = (int)strtol(operand.code, NULL, 10); //Register 2
+
+		if (I_DEBUG)
+			printf("MUL_REG, regA: %i, regB: %i", regA, regB);
+
+		//Check write access on regA, then read access on regB
+		if (Interp_regWritePerm(regA) && Interp_regReadPerm(regB)) {
+			//We can write:
+			s->reg[regA] *= s->reg[regB];
+		}
+		break;
+
+	case ACTION_MOD_REG:
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		regA = (char)strtol(operand.code, NULL, 10); //Register 1
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		regB = (int)strtol(operand.code, NULL, 10); //Register 2
+
+		if (I_DEBUG)
+			printf("MOD_REG, regA: %i, regB: %i", regA, regB);
+
+		//Check write access on regA, then read access on regB
+		if (Interp_regWritePerm(regA) && Interp_regReadPerm(regB)) {
+			//We can write:
+			s->reg[regA] %= s->reg[regB];
+		}
+		break;
+
+	case ACTION_BSH_POS:
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		regA = (char)strtol(operand.code, NULL, 10); //Register 1
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		regB = (int)strtol(operand.code, NULL, 10); //Register 2
+
+		if (I_DEBUG)
+			printf("BSH_POS, regA: %i, regB: %i", regA, regB);
+
+		//Check write access on regA, then read access on regB
+		if (Interp_regWritePerm(regA) && Interp_regReadPerm(regB)) {
+			//We can write:
+			s->reg[regA] = (s->reg[regA] << s->reg[regB]);
+		}
+		break;
+
+	case ACTION_BSH_NEG:
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		regA = (char)strtol(operand.code, NULL, 10); //Register 1
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		regB = (int)strtol(operand.code, NULL, 10); //Register 2
+
+		if (I_DEBUG)
+			printf("BSH_NEG, regA: %i, regB: %i", regA, regB);
+
+		//Check write access on regA, then read access on regB
+		if (Interp_regWritePerm(regA) && Interp_regReadPerm(regB)) {
+			//We can write:
+			s->reg[regA] = (s->reg[regA] >> s->reg[regB]);
 		}
 		break;
 	

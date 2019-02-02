@@ -1,1 +1,1 @@
-gcc src/*.c -o bin/interp
+gcc src/*.c -o bin/interp -Wall

@@ -1,0 +1,14 @@
+con Is it divisible by 5?;
+set 9 1;
+set 10 1;
+set 11 40;
+set 13 5;
+mv 12 10;
+mod 12 13;
+ifn 10 12 0;
+conr 10;
+con Divisible!;
+add 10 9;
+ifn 5 10 11;
+con All done!;
+exit;

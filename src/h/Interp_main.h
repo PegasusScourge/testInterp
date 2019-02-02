@@ -6,27 +6,33 @@ Header file for Interp_main.c
 
 */
 
+#define INTERP_MEM_SIZE 4096
+
 typedef enum InterpAction InterpAction_t;
 enum InterpAction{
 	ACTION_NONE, //No action
-	ACTION_EXIT, //Exit, "exit"
-	ACTION_HI, //Send a hi to <operand>, "hello <operand>"
-	ACTION_ECHO, //Echo the following text to the user, "echo <text>"
-	ACTION_ADD_REG, //Add reg <2> to <1> and store in <1>, "add <1> <2>"
-	ACTION_SUB_REG, //Subtract reg <2> from <1> and store in <1>, "sub <1> <2>"
-	ACTION_MV_REG, //Move value of register <2> to register <1>, "mv <1> <2>"
-	ACTION_SET_REG, //Set the value of register <1> to <val>, "set <1> <val>"
-	ACTION_SV_MEM, //Save the value of register <1> to currently selected memory location (register #1), "svm <1>"
-	ACTION_RD_MEM, //Read the value of selected memory location (register #1) and set register <1> to that value, "rdm <1>"
-	ACTION_JMP, //Jump to line <ln>, "jmp <ln>"
-	ACTION_JMP_IF, //Jump to line <ln> if register <1> == register <2>, "if <ln> <1> <2>"
-	ACTION_JMP_NIF, //Jump to line <ln> if register <1> != register <2>, "ifn <ln> <1> <2>"
-	ACTION_JMP_LT, //Jump to line <ln> if register <1> < register <2>, "ifl <ln> <1> <2>"
-	ACTION_JMP_MT, //Jump to line <ln> if register <1> > register <2>, "ifm <ln> <1> <2>"
-	ACTION_DIV_REG, //Divide reg <1> by reg <2>, store in reg <1> and put remainder in register #2, "div <1> <2>"
-	ACTION_MUL_REG, //Multiply reg <1> by reg <2> and store in reg <1>, "mul <1> <2>"
-	ACTION_BSH_POS, //Bitshift register <1> by value of <2> bits, "bpl <1> <2>"
-	ACTION_BSH_NEG //Bitshift register <1> by - value of <2> bits, "bmi <1> <2>"
+	ACTION_EXIT, //exit
+	ACTION_HI, //hello
+	ACTION_ECHO, //con
+	ACTION_ECHOR, //conr
+	ACTION_ADD_REG, //add
+	ACTION_ADD_NUM, //addn
+	ACTION_SUB_REG, //sub
+	ACTION_MV_REG, //mv
+	ACTION_SET_REG, //set
+	ACTION_SV_MEM, //svm -
+	ACTION_RD_MEM, //rdm -
+	ACTION_JMP, //jmp
+	ACTION_JMP_IF, //ife
+	ACTION_JMP_NIF, //ifn
+	ACTION_JMP_LT, //ifl
+	ACTION_JMP_MT, //ifm
+	ACTION_DIV_REG, //div
+	ACTION_MUL_REG, //mul
+	ACTION_BSH_POS, //bpl
+	ACTION_BSH_NEG, //bmi
+	ACTION_MOD_REG, //mod
+	ACTION_JMP_REL //jmpr
 };
 
 typedef struct OpcodeData OpDat_t;
@@ -37,22 +43,11 @@ struct OpcodeData{
 
 typedef struct InterpData IntDat_t;
 struct InterpData{
-
 	char* buff;
-	long int buffSize;
-	int memory[4096]; //8kB of memory, 2 bytes per space
-	
-	int reg[16]; //16 registers, 2 Bytes each
-	/*
-		0 = always 0
-		1 = memory address currently set
-		2 = overflow
-		3 = Error register
-		4 - 8 = reserved for future use
-		9 - 15 = code use
-	*/
-	int pc; //Program counter
-
+	long buffSize;
+	short memory[INTERP_MEM_SIZE]; //8kB of memory, 2 bytes per space
+	short reg[16]; //16 registers, 2 Bytes each
+	long pc; //Program counter
 	int currentLine;
 };
 
@@ -85,3 +80,15 @@ int Interp_getNextOperand(OpDat_t*, char*, int);
 
 /* Executes a jump forwards or backwards by <int> opcodes (techincally lines too) */
 void Interp_execJmp(int, IntDat_t*);
+
+/* Checks for write permission on register */
+char Interp_regWritePerm(char reg);
+
+/* Checks for read permission on register */
+char Interp_regReadPerm(char reg);
+
+/* Operates on memory, reads the value of mem[r[1]] into reg*/
+void Interp_memOpRead(IntDat_t*, char);
+
+/* Operates on memory, writes the value of reg to mem[r[1]]*/
+void Interp_memOpWrite(IntDat_t*, char);
