@@ -14,7 +14,7 @@ enum InterpAction{
 	ACTION_ECHO, //Echo the following text to the user, "echo <text>"
 	ACTION_ADD_REG, //Add reg <2> to <1> and store in <1>, "add <1> <2>"
 	ACTION_SUB_REG, //Subtract reg <2> from <1> and store in <1>, "sub <1> <2>"
-	ACTION_MV_REG, //Move value of register <1> to register <2>, "mv <1> <2>"
+	ACTION_MV_REG, //Move value of register <2> to register <1>, "mv <1> <2>"
 	ACTION_SET_REG, //Set the value of register <1> to <val>, "set <1> <val>"
 	ACTION_SV_MEM, //Save the value of register <1> to currently selected memory location (register #1), "svm <1>"
 	ACTION_RD_MEM, //Read the value of selected memory location (register #1) and set register <1> to that value, "rdm <1>"
@@ -82,3 +82,6 @@ char Interp_act(InterpAction_t, IntDat_t*, OpDat_t*);
 
 /* Gets the next operand in the current instruction, returns the length of the operand (also stored in OpDat_t) */
 int Interp_getNextOperand(OpDat_t*, char*, int);
+
+/* Executes a jump forwards or backwards by <int> opcodes (techincally lines too) */
+void Interp_execJmp(int, IntDat_t*);

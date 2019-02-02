@@ -249,6 +249,35 @@ int Interp_getNextOperand(OpDat_t* opdat, char* d, int s) {
 	return e;
 }
 
+void Interp_execJmp(int jmpTo, IntDat_t* s) {
+	if (jmpTo < s->currentLine) {
+		//Go backwards
+		if (I_DEBUG)
+			printf(" | -ve");
+
+		while (s->currentLine != jmpTo) {
+			Interp_last(s);
+			s->currentLine--;
+
+			if (I_DEBUG)
+				printf(",%i", s->currentLine);
+		}
+	}
+	else {
+		//Go forwards
+		if (I_DEBUG)
+			printf(" | +ve");
+
+		while (s->currentLine != jmpTo) {
+			Interp_next(s);
+			s->currentLine++;
+
+			if (I_DEBUG)
+				printf(",%i", s->currentLine);
+		}
+	}
+}
+
 char Interp_act(InterpAction_t action, IntDat_t* s, OpDat_t* op){
 	char returnVal = 0;
 	
@@ -320,32 +349,7 @@ char Interp_act(InterpAction_t action, IntDat_t* s, OpDat_t* op){
 		if (regA >= 0 && regA <= 15 && regB >= 0 && regB <= 15) {
 			if (s->reg[regA] != s->reg[regB]) {
 				//Jump forward or backwards
-				if (valA < s->currentLine) {
-					//Go backwards
-					if(I_DEBUG)
-						printf(" | -ve");
-
-					while (s->currentLine != valA) {
-						Interp_last(s);
-						s->currentLine--;
-
-						if(I_DEBUG)
-							printf(",%i", s->currentLine);
-					}
-				}
-				else {
-					//Go forwards
-					if(I_DEBUG)
-						printf(" | +ve");
-
-					while (s->currentLine != valA) {
-						Interp_next(s);
-						s->currentLine++;
-
-						if(I_DEBUG)
-							printf(",%i", s->currentLine);
-					}
-				}
+				Interp_execJmp(valA, s);
 			}
 		}
 		break;
