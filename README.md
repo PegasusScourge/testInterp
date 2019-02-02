@@ -1,19 +1,19 @@
-#Readme
-##Synopsis
+# Readme
+## Synopsis
 testInterp is a first attempt at an interpreter in C
 
 The language interpreted is based on assembly language and is written in plain text with semi-colon terminators on the end of lines.
 A fuller description of the language is detailed below.
 
-##Interpeter
+## Interpeter
 The interpreter itself uses a register-based design, with 8kB of memory allocated to the program for use, in 2 byte blocks.
 The registers are detailed in a lower section.
 
-###Example call
+### Example call
 ```testInterp test.txt 1```
 This would load the file `test.txt` and enable debugging; 0 instead of 1 would disable debugging. This argument may also be ommited
 
-###Flow
+### Flow
 The actions of the interpreter as follows:
 1. Loads the file designated in the first argument after it's cmd call
 2. Sets the debug flag internally based on the second argument of the cmd call
@@ -22,7 +22,7 @@ The actions of the interpreter as follows:
 5. Actions are then performed from the translated opcode, and operands accessed and acted upon
 6. The execution continues until EOF or `exit;` is used
 
-###Specifications
+### Specifications
 * 8kB of program memory, addressable in blocks of 2 bytes
 * 16 registers (WIP)
   * r[0] --> fixed at value 0, read only
@@ -33,12 +33,12 @@ The actions of the interpreter as follows:
   * r[9] to r[15] --> open for program use, read and write
 * Built-in console output
 
-##The language
+## The language
 The language is based on assembly code, in that it contains 'opcodes' and 'operands'. Opcodes are strings (or char* depending on your prefered flavour).
 There is a variable number of operands possible after an opcode, meaning no fixed length of instruction. Instructions are terminated with a semi-colon (';'), and only one instruction is permitted per line.
 The language is capable of dealing with both '\n' and '\r\n' character returns, but requires the presence of the '\n' newline char at the end of each line.
 
-###Instruction set
+### Instruction set
 Notes:
 * Register numbers e.g. <r1>, <r2> are written as numbers, e.g. '1', '10', '12' etc.
 
