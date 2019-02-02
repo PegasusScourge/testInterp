@@ -42,6 +42,7 @@ Notes:
 * Register numbers e.g. <r1>, <r2> are written as numbers, e.g. '1', '10', '12' etc.
 
 Instructions:
+
 | Command | Details |
 | --- | --- |
 | exit; | Exits the currently running program. Takes no operands |
