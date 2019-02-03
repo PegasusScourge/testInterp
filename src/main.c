@@ -16,11 +16,14 @@ int main(int argc, char** argv){
 		Interp_run(argv[1]);
 	} else if(argc == 3){
 		//Got a third argument, so set the debug flag
-		Interp_isDebug((char)strtol(argv[2], NULL, 10));
+		Interp_setDebug((char)strtol(argv[2], NULL, 10));
 		Interp_run(argv[1]);
 	}
-	else {
+	else if(argc < 2){
 		printf("Not enough args!\n");
+	}
+	else {
+		printf("Too many args! I can't do your taxes\n");
 	}
 
 	return 0;

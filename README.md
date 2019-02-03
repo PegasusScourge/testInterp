@@ -22,7 +22,9 @@ The actions of the interpreter as follows:
 6. The execution continues until EOF or `exit;` is used
 
 #### Specifications
-* 8kB of program memory, addressable in blocks of 2 bytes
+* WORD length of 2 bytes (16 bits). Memory, stack and registers are in WORD lengths
+* 8kB of program memory (4096 addressable locations)
+* 16-deep stack register
 * 16 registers, 2 bytes each (WIP)
   * r[0] --> fixed at value 0, read only
   * r[1] --> currently addressed memory location, read write
@@ -40,6 +42,8 @@ The language is capable of dealing with both '\n' and '\r\n' character returns, 
 #### Instruction set
 Notes:
 * Register numbers e.g. <r1>, <r2> are written as numbers, e.g. '1', '10', '12' etc.
+* Comments may also be placed after ; characters
+* Files must end in a new line
 
 Instructions:
 
@@ -51,12 +55,19 @@ Instructions:
 | con [text]; | Prints [text] to the console. [text] may contain spaces |
 | conr [reg]; | Prints the vlaue of register [reg] to the console |
 | add [r1] [r2]; | Adds the value of [r2] to [r1]. Stores in [r1] |
+| addn [r1] [num]; | Adds the value of [num] to [r1]. Stores in [r1] |
 | sub [r1] [r2]; | Subtracts the value of [r2] from [r1]. Stores in [r1] |
+| subn [r1] [num]; | Subtracts the value of [num] from [r1]. Stores in [r1] |
 | div [r1] [r2]; | Divides register [r1] by [r2], stores in [r1] and puts the remainder in r[2] |
+| divn [r1] [num]; | Divides register [r1] by [num], stores in [r1] and puts the remainder in r[2] |
 | mul [r1] [r2]; | Multiplies register [r1] by [r2] and stores in [r1] |
+| muln [r1] [num]; | Multiplies register [r1] by [num] and stores in [r1] |
 | mod [r1] [r2]; | Does [r1] % [r2] and stores in [r1] |
+| modn [r1] [num]; | Does [r1] % [num] and stores in [r1] |
 | bpl [r1] [r2]; | Bit-shifts up (<<) the value of [r1] by valueof([r2]) bits , e.g. `bpl 9 10` bitshifts up r[9] by the value of r[10] |
+| bnp [r1] [num]; | Bit-shifts up (<<) the value of [r1] by [num] bits |
 | bmi [r1] [r2]; | Bit-shifts down (>>) the value of [r1] by valueof([r2]) bits , e.g. `bpl 9 10` bitshifts down r[9] by the value of r[10] |
+| bnm [r1] [num]; | Bit-shifts down (>>) the value of [r1] by [num] bits |
 | mv [r1] [r2]; | Moves the value of [r2] to [r1] |
 | set [r1] [num]; | Sets the value of [r1] to [num]. [num] is an integer |
 | svm [r1]; | Saves the value of [r1] to the memory address pointed to by r[1] |
@@ -67,3 +78,6 @@ Instructions:
 | ifn [ln] [r1] [r2]; | Jumps to line [ln] of the program if [r1] != [r2] |
 | ifl [ln] [r1] [r2]; | Jumps to line [ln] of the program if [r1] < [r2] |
 | ifm [ln] [r1] [r2]; | Jumps to line [ln] of the program if [r1] > [r2] |
+| push [r1] | Pushes the value of [r1] to the stack |
+| pop [r1] | Pops the value on top of the stack and stores in [r1] |
+| peak [r1] | Peaks at the value on top of the stack (doesn't pop) and stores in [r1] |

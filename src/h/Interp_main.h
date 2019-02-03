@@ -7,6 +7,7 @@ Header file for Interp_main.c
 */
 
 #define INTERP_MEM_SIZE 4096
+#define INTERP_STACK_SIZE 16
 
 typedef enum InterpAction InterpAction_t;
 enum InterpAction{
@@ -18,21 +19,30 @@ enum InterpAction{
 	ACTION_ADD_REG, //add
 	ACTION_ADD_NUM, //addn
 	ACTION_SUB_REG, //sub
+	ACTION_SUB_NUM, //subn
 	ACTION_MV_REG, //mv
 	ACTION_SET_REG, //set
-	ACTION_SV_MEM, //svm -
-	ACTION_RD_MEM, //rdm -
+	ACTION_SV_MEM, //svm
+	ACTION_RD_MEM, //rdm
 	ACTION_JMP, //jmp
 	ACTION_JMP_IF, //ife
 	ACTION_JMP_NIF, //ifn
 	ACTION_JMP_LT, //ifl
 	ACTION_JMP_MT, //ifm
 	ACTION_DIV_REG, //div
+	ACTION_DIV_NUM, //divn
 	ACTION_MUL_REG, //mul
+	ACTION_MUL_NUM, //muln
 	ACTION_BSH_POS, //bpl
+	ACTION_BSN_POS, //bnp
 	ACTION_BSH_NEG, //bmi
+	ACTION_BSN_NEG, //bnm
 	ACTION_MOD_REG, //mod
-	ACTION_JMP_REL //jmpr
+	ACTION_MOD_NUM, //modn
+	ACTION_JMP_REL, //jmpr
+	ACTION_PUSH, //push
+	ACTION_POP, //pop
+	ACTION_PEAK //peak
 };
 
 typedef struct OpcodeData OpDat_t;
@@ -46,12 +56,14 @@ struct InterpData{
 	char* buff;
 	long buffSize;
 	short memory[INTERP_MEM_SIZE]; //8kB of memory, 2 bytes per space
+	short stack[INTERP_STACK_SIZE];
 	short reg[16]; //16 registers, 2 Bytes each
 	long pc; //Program counter
 	int currentLine;
+	int sp;
 };
 
-void Interp_isDebug(char);
+void Interp_setDebug(char);
 
 /* Loads and runs the interpreter */
 void Interp_run(char*);
@@ -92,3 +104,12 @@ void Interp_memOpRead(IntDat_t*, char);
 
 /* Operates on memory, writes the value of reg to mem[r[1]]*/
 void Interp_memOpWrite(IntDat_t*, char);
+
+/* Push the value onto the stack */
+void Interp_pushStack(IntDat_t*, short);
+
+/* Pop a value off the stack */
+short Interp_popStack(IntDat_t*);
+
+/* Peak at the value on the stack */
+short Interp_peakStack(IntDat_t*);

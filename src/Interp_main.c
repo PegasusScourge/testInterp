@@ -10,7 +10,7 @@
 #define I_DEBUG Interp_DEBUG
 char Interp_DEBUG = FALSE;
 
-void Interp_isDebug(char d) {
+void Interp_setDebug(char d) {
 	I_DEBUG = d;
 }
 
@@ -32,7 +32,6 @@ void Interp_run(char* f){
 	rewind(fp);
 	
 	IntDat_t InterpInfo;
-	InterpInfo.pc = 0;
 	//Assign memory
 	InterpInfo.buffSize = fpSize*sizeof(char);
 	InterpInfo.buff = malloc(InterpInfo.buffSize);
@@ -84,7 +83,11 @@ void Interp_run(char* f){
 
 void Interp_exec(IntDat_t* store, int numLines){
 	char exit = FALSE;
+	
+	//Init the store values
 	store->currentLine = 0;
+	store->pc = 0;
+	store->sp = 0;
 	store->reg[0] = 0;
 	
 	OpDat_t op; op.code = NULL;
@@ -206,6 +209,33 @@ InterpAction_t Interp_opcode(char* opcode){
 	if (strcmp(opcode, "addn") == 0) {
 		return ACTION_ADD_NUM;
 	}
+	if (strcmp(opcode, "subn") == 0) {
+		return ACTION_SUB_NUM;
+	}
+	if (strcmp(opcode, "divn") == 0) {
+		return ACTION_DIV_NUM;
+	}
+	if (strcmp(opcode, "muln") == 0) {
+		return ACTION_MUL_NUM;
+	}
+	if (strcmp(opcode, "modn") == 0) {
+		return ACTION_MOD_NUM;
+	}
+	if (strcmp(opcode, "bnp") == 0) {
+		return ACTION_BSN_POS;
+	}
+	if (strcmp(opcode, "bnm") == 0) {
+		return ACTION_BSN_NEG;
+	}
+	if (strcmp(opcode, "push") == 0) {
+		return ACTION_PUSH;
+	}
+	if (strcmp(opcode, "pop") == 0) {
+		return ACTION_POP;
+	}
+	if (strcmp(opcode, "peak") == 0) {
+		return ACTION_PEAK;
+	}
 
 	//We don't know what the opcode meant, so we return ACTION_NONE
 	return ACTION_NONE;
@@ -217,12 +247,12 @@ void Interp_next(IntDat_t* store){
 	//Move onto the ';' terminator of the current command
 	do{
 		store->pc++;
-	}while(d[store->pc] != ';');
+	}while(store->pc < store->buffSize && d[store->pc] != ';');
 	
 	//Move until we are off of \n or \r values
-	do{
+	while (store->pc < store->buffSize && d[store->pc] != '\n') {
 		store->pc++;
-	}while(d[store->pc] != '\n');
+	}
 	store->pc++;
 	
 	//We should now be at the next opcode
@@ -237,7 +267,7 @@ void Interp_last(IntDat_t* store) {
 	//Move onto the ';' terminator of the last command
 	do {
 		store->pc--;
-	} while (d[store->pc] != ';');
+	} while (d[store->pc] != ';' && store->pc >= 0);
 	store->pc++;
 
 	//We should now be at the last opcode
@@ -303,6 +333,46 @@ char Interp_regReadPerm(char reg) {
 	return FALSE;
 }
 
+void Interp_pushStack(IntDat_t* s, short val) {
+	s->sp++;
+	if (s->sp < 0) {
+		//Throw a stack underflow
+	}
+	else if (s->sp >= INTERP_STACK_SIZE) {
+		//Throw a stack overflow error
+	}
+	else {
+		s->stack[s->sp] = val;
+	}
+}
+
+short Interp_popStack(IntDat_t* s) {
+	if (s->sp < 0) {
+		//Throw a stack underflow
+	}
+	else if (s->sp >= INTERP_STACK_SIZE) {
+		//Throw a stack overflow error
+	}
+	else {
+		return s->stack[s->sp];
+	}
+	s->sp--;
+	return 0;
+}
+
+short Interp_peakStack(IntDat_t* s) {
+	if (s->sp < 0) {
+		//Throw a stack underflow
+	}
+	else if (s->sp >= INTERP_STACK_SIZE) {
+		//Throw a stack overflow error
+	}
+	else {
+		return s->stack[s->sp];
+	}
+	return 0;
+}
+
 void Interp_memOpRead(IntDat_t* s, char reg) {
 	//Check that the memory position selected is valid
 	if (s->reg[1] >= 0 && s->reg[1] < INTERP_MEM_SIZE) {
@@ -331,6 +401,42 @@ char Interp_act(InterpAction_t action, IntDat_t* s, OpDat_t* op){
 	int operandLenAccumulator = op->len;
 	
 	switch(action){
+
+	case ACTION_PEAK:
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		regA = (char)strtol(operand.code, NULL, 10); //Convert operand <1> to a char number (number is in base 10)
+
+		if (I_DEBUG)
+			printf("STACK_PEAK, regA: %i", regA);
+
+		if (Interp_regWritePerm(regA)) {
+			s->reg[regA] = Interp_peakStack(s);
+		}
+		break;
+
+	case ACTION_POP:
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		regA = (char)strtol(operand.code, NULL, 10); //Convert operand <1> to a char number (number is in base 10)
+
+		if (I_DEBUG)
+			printf("STACK_POP, regA: %i", regA);
+
+		if (Interp_regWritePerm(regA)) {
+			s->reg[regA] = Interp_popStack(s);
+		}
+		break;
+
+	case ACTION_PUSH:
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		regA = (char)strtol(operand.code, NULL, 10); //Convert operand <1> to a char number (number is in base 10)
+
+		if (I_DEBUG)
+			printf("STACK_PUSH, regA: %i", regA);
+
+		if (Interp_regReadPerm(regA)) {
+			 Interp_pushStack(s, s->reg[regA]);
+		}
+		break;
 
 	case ACTION_HI:
 		//Get the person we are saying hi to:
@@ -558,6 +664,102 @@ char Interp_act(InterpAction_t action, IntDat_t* s, OpDat_t* op){
 		if (Interp_regWritePerm(regA) && Interp_regReadPerm(regB)) {
 			//We can write:
 			s->reg[regA] -= s->reg[regB];
+		}
+		break;
+
+	case ACTION_SUB_NUM:
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		regA = (char)strtol(operand.code, NULL, 10); //Register 1
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		valA = (int)strtol(operand.code, NULL, 10); //Register 2
+
+		if (I_DEBUG)
+			printf("SUB_NUM, regA: %i, valA: %i", regA, valA);
+
+		//Check write access on regA
+		if (Interp_regWritePerm(regA)) {
+			//We can write:
+			s->reg[regA] -= valA;
+		}
+		break;
+
+	case ACTION_DIV_NUM:
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		regA = (char)strtol(operand.code, NULL, 10); //Register 1
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		valA = (int)strtol(operand.code, NULL, 10); //Register 2
+
+		if (I_DEBUG)
+			printf("DIV_NUM, regA: %i, valA: %i", regA, valA);
+
+		//Check write access on regA
+		if (Interp_regWritePerm(regA)) {
+			//We can write:
+			s->reg[regA] /= valA;
+		}
+		break;
+
+	case ACTION_MUL_NUM:
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		regA = (char)strtol(operand.code, NULL, 10); //Register 1
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		valA = (int)strtol(operand.code, NULL, 10); //Register 2
+
+		if (I_DEBUG)
+			printf("MUL_NUM, regA: %i, valA: %i", regA, valA);
+
+		//Check write access on regA
+		if (Interp_regWritePerm(regA)) {
+			//We can write:
+			s->reg[regA] *= valA;
+		}
+		break;
+
+	case ACTION_MOD_NUM:
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		regA = (char)strtol(operand.code, NULL, 10); //Register 1
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		valA = (int)strtol(operand.code, NULL, 10); //Register 2
+
+		if (I_DEBUG)
+			printf("MOD_NUM, regA: %i, valA: %i", regA, valA);
+
+		//Check write access on regA
+		if (Interp_regWritePerm(regA)) {
+			//We can write:
+			s->reg[regA] %= valA;
+		}
+		break;
+
+	case ACTION_BSN_POS:
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		regA = (char)strtol(operand.code, NULL, 10); //Register 1
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		valA = (int)strtol(operand.code, NULL, 10); //Register 2
+
+		if (I_DEBUG)
+			printf("BSH_P-NUM, regA: %i, valA: %i", regA, valA);
+
+		//Check write access on regA
+		if (Interp_regWritePerm(regA)) {
+			//We can write:
+			s->reg[regA] = (s->reg[regA] << s->reg[regB]);
+		}
+		break;
+
+	case ACTION_BSN_NEG:
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		regA = (char)strtol(operand.code, NULL, 10); //Register 1
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		valA = (int)strtol(operand.code, NULL, 10); //Register 2
+
+		if (I_DEBUG)
+			printf("BSH_N-NUM, regA: %i, valA: %i", regA, valA);
+
+		//Check write access on regA
+		if (Interp_regWritePerm(regA)) {
+			//We can write:
+			s->reg[regA] = (s->reg[regA] >> s->reg[regB]);
 		}
 		break;
 
