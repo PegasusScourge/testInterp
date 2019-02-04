@@ -13,6 +13,7 @@ The registers are detailed in a lower section.
 ```interp(.exe) [file] [debug=0]```
 
 [file] specifies the file to load and run. Can have any file extension.
+
 [debug] defaults to 0 and may be ommitted. `1` enables debugging mode for the console output.
 
 #### Flow
@@ -48,7 +49,7 @@ The language is capable of dealing with both '\n' and '\r\n' character returns, 
 * Comments may also be placed after ; characters
 * Files must end in a new line
 
-###### Instructions:
+##### Instructions:
 
 | Command | Details |
 | --- | --- |
