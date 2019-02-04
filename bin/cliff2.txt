@@ -1,0 +1,10 @@
+set 9 0;
+set 10 1;
+set 11 30;
+set 12 44;
+add 9 10;
+conv 9;
+conc 12;
+ifn 4 9 11;
+hello peeplez; test comment
+exit;

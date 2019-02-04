@@ -45,6 +45,9 @@ enum InterpAction{
 	ACTION_PEAK, //peak
 	ACTION_JMPL, //jmpl
 	ACTION_RET, //ret
+	ACTION_FUNC, //func
+	ACTION_ECHOC, //conc
+	ACTION_ECHOV, //conv
 };
 
 typedef struct OpcodeData OpDat_t;
@@ -58,6 +61,7 @@ struct ProgramLabel {
 	char name[65]; //Labels may be 64 characters in length (+1 for \0)
 	int name_len;
 	int lineNum;
+	int pcPos;
 };
 
 typedef struct InterpData IntDat_t;
@@ -126,3 +130,15 @@ short Interp_popStack(IntDat_t*);
 
 /* Peak at the value on the stack */
 short Interp_peakStack(IntDat_t*);
+
+/* Returns the pc of the End of the Instruction (';' terminated) */
+int Interp_pcEOI(IntDat_t*);
+
+/* Returns the pc of the End of the Line ('\n' terminated) */
+int Interp_pcEOI(IntDat_t*);
+
+/* Returns the pc of the Start of the Instruction (eliminates spaces, '\n' and '\r') */
+int Interp_pcEOI(IntDat_t*);
+
+/* Searches the labels and finds the requisite one */
+ProgLab_t* Interp_getLabel(IntDat_t*, char*, int);

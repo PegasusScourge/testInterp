@@ -50,11 +50,13 @@ Instructions:
 | Command | Details |
 | --- | --- |
 | #[comment]; | Comment line. Not executed |
-| :[name]; | Creates a label at this line with <name> |
+| :[name]; | Creates a label at this line with <name>. Cannot contain spaces |
 | exit; | Exits the currently running program. Takes no operands |
 | hello [person]; | Says hello in the console to [person]. [person] may not contain spaces |
 | con [text]; | Prints [text] to the console. [text] may contain spaces |
-| conr [reg]; | Prints the vlaue of register [reg] to the console |
+| conr [reg]; | Prints the value of register [reg] to the console |
+| conc [reg]; | Prints the value of register [reg] as a char to the console |
+| conv [reg]; | Prints the numerical value of [reg] to the console |
 | add [r1] [r2]; | Adds the value of [r2] to [r1]. Stores in [r1] |
 | addn [r1] [num]; | Adds the value of [num] to [r1]. Stores in [r1] |
 | sub [r1] [r2]; | Subtracts the value of [r2] from [r1]. Stores in [r1] |
@@ -74,7 +76,9 @@ Instructions:
 | svm [r1]; | Saves the value of [r1] to the memory address pointed to by r[1] |
 | rdm [r1]; | Reads the value of memory pointed to by r[1] and stores in [r1] |
 | jmp [ln]; | Jumps to line [ln] of the program |
-| jmpl [name]; | Jumps to label [name] (defined with :[name]) (WIP) |
+| jmpl [name]; | Jumps to label [name] (defined with :[name]) |
+| func [name]; | Jumps to label [name] and stores the data for returning to this call (see `ret`) on the stack |
+| ret; | Returns from `func` jump |
 | jmpr [+/-]; | Jumps relative to this line [+/-] lines |
 | ife [ln] [r1] [r2]; | Jumps to line [ln] of the program if [r1] == [r2] |
 | ifn [ln] [r1] [r2]; | Jumps to line [ln] of the program if [r1] != [r2] |

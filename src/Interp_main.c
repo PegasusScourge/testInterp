@@ -98,6 +98,7 @@ void Interp_run(char* f){
 
 		if ((InterpInfo.buff[i] == ';' || InterpInfo.buff[i] == ' ') && startPC != -1) {
 			//Trigger the setup of a new label
+			InterpInfo.labels[currentLab].pcPos = startPC;
 			InterpInfo.labels[currentLab].lineNum = currentLne;
 			InterpInfo.labels[currentLab].name_len = i - startPC + 1;
 
@@ -120,7 +121,7 @@ void Interp_run(char* f){
 	if (I_DEBUG) {
 		printf("Got labels:\n");
 		for (int i = 0; i < InterpInfo.labelsLength; i++) {
-			printf("Name: \"%s\" (len:%i), line: %i\n", InterpInfo.labels[i].name, InterpInfo.labels[i].name_len, InterpInfo.labels[i].lineNum);
+			printf("Name: \"%s\" (len:%i), line: %i, pc: %i\n", InterpInfo.labels[i].name, InterpInfo.labels[i].name_len, InterpInfo.labels[i].lineNum, InterpInfo.labels[i].pcPos);
 		}
 	}
 
@@ -295,6 +296,21 @@ InterpAction_t Interp_opcode(char* opcode){
 	if (strcmp(opcode, "ret") == 0) {
 		return ACTION_RET;
 	}
+	if (strcmp(opcode, "func") == 0) {
+		return ACTION_FUNC;
+	}
+	if (strcmp(opcode, "cons") == 0) {
+		return ACTION_ECHOC;
+	}
+	if (strcmp(opcode, "conv") == 0) {
+		return ACTION_ECHOV;
+	}
+
+	if (opcode[0] == '#') {
+		//We detected a comment!
+		return ACTION_NONE;
+	}
+
 	//We don't know what the opcode meant, so we return ACTION_NONE
 	return ACTION_NONE;
 }
@@ -307,6 +323,17 @@ int Interp_pcEOI(IntDat_t* s) {
 		currentP++;
 	}
 	currentP++; //Put ourselves on the ;
+
+	return currentP;
+}
+
+int Interp_pcSOI(IntDat_t* s) {
+	int currentP = s->pc;
+
+	//Increments past ' ' characters
+	while (s->pc < s->buffSize && (s->buff[s->pc] == ' ' || s->buff[s->pc] == '\n' || s->buff[s->pc] == '\r')) {
+		currentP++;
+	}
 
 	return currentP;
 }
@@ -471,11 +498,23 @@ void Interp_memOpWrite(IntDat_t* s, char reg) {
 	}
 }
 
+ProgLab_t* Interp_getLabel(IntDat_t* s, char* st, int sLen) {
+	ProgLab_t* label = NULL;
+
+	for (int i = 0; i < s->labelsLength; i++) {
+		if (strcmp(s->labels[i].name, st) == 0) {
+			label = &s->labels[i];
+		}
+	}
+
+	return label;
+}
+
 char Interp_act(InterpAction_t action, IntDat_t* s, OpDat_t* op){
 	char returnVal = 0;
 	
 	OpDat_t operand; operand.code = NULL;
-	char valS[64];
+	char valS[65];
 	char regA = 0;
 	char regB = 0;
 	int valA = 0;
@@ -483,17 +522,58 @@ char Interp_act(InterpAction_t action, IntDat_t* s, OpDat_t* op){
 	
 	int operandLenAccumulator = op->len;
 	
-	switch(action){
+	switch (action) {
 
-	case ACTION_JMPL:
+	case ACTION_JMPL: {
 		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
-		memcpy(valS, operand.code, (operand.len+1)); //+1 for the \0 character
+		memcpy(valS, operand.code, (operand.len + 1)); //+1 for the \0 character
+		valS[operand.len] = '\0';
 
 		if (I_DEBUG)
 			printf("JMPL, valS: %s", valS);
 
-		//valA = Interp_getLabelLine(s, &valS, (operand.len + 1));
-		//NOT COMPLETE
+		ProgLab_t* label = Interp_getLabel(s, valS, (operand.len + 1));
+		if (label) {
+			valA = label->lineNum;
+			Interp_execJmp(valA - 1, s);
+		}
+		else {
+			//Throw label not found exception
+		}
+	}	break;
+
+	case ACTION_FUNC: {
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		memcpy(valS, operand.code, (operand.len + 1)); //+1 for the \0 character
+		valS[operand.len] = '\0';
+
+		ProgLab_t* label = Interp_getLabel(s, valS, (operand.len + 1));
+
+		//Check we didn't get a null pointer, thus no label
+		if (label) {
+			valA = label->lineNum;
+
+			if (I_DEBUG)
+				printf("FUNC, valS: %s, ln: %i, pc: %i, tgtLn: %i", valS, s->currentLine, s->pc, valA);
+
+			//Before we jump, push the line number with +1
+			Interp_pushStack(s, s->currentLine + 1);
+
+			Interp_execJmp(valA - 1, s);
+		}
+		else {
+			//Throw label not found?
+		}
+	}	break;
+
+	case ACTION_RET:
+		//Pop the value off the stack:
+		valA = Interp_popStack(s);
+
+		if (I_DEBUG)
+			printf("RET, ln: %i, pc: %i, tgtLn: %i", s->currentLine, s->pc, valA);
+
+		Interp_execJmp(valA - 1, s);
 		break;
 
 	case ACTION_PEAK:
@@ -560,7 +640,7 @@ char Interp_act(InterpAction_t action, IntDat_t* s, OpDat_t* op){
 			printf("\n");
 	}	break;
 
-	case ACTION_ECHOR: {
+	case ACTION_ECHOR:
 		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
 		regA = (char)strtol(operand.code, NULL, 10); //Convert operand <1> to a char number (number is in base 10)
 
@@ -572,7 +652,29 @@ char Interp_act(InterpAction_t action, IntDat_t* s, OpDat_t* op){
 
 		if (!I_DEBUG)
 			printf("\n");
-	}	break;
+		break;
+
+	case ACTION_ECHOV:
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		regA = (char)strtol(operand.code, NULL, 10); //Convert operand <1> to a char number (number is in base 10)
+
+		if (I_DEBUG)
+			printf("ECHOV\n");
+
+		if (Interp_regReadPerm(regA))
+			printf("%i", s->reg[regA]);
+		break;
+
+	case ACTION_ECHOC:
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		regA = (char)strtol(operand.code, NULL, 10); //Convert operand <1> to a char number (number is in base 10)
+
+		if (I_DEBUG)
+			printf("ECHOC\n");
+
+		if (Interp_regReadPerm(regA))
+			printf("%c", (char)s->reg[regA]);
+		break;
 
 	case ACTION_SET_REG:
 		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
