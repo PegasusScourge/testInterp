@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 
 #define TRUE 1
 #define FALSE 0
@@ -30,10 +31,17 @@ void Interp_run(char* f){
 	fseek(fp, 0L, SEEK_END);
 	long fpSize = (long)ftell(fp);
 	rewind(fp);
+
+	if (fpSize > INT_MAX) {
+		printf("File has size %li; above INT_MAX! Unable to load file.\n", fpSize);
+		//Close the file we were using and return
+		fclose(fp);
+		return;
+	}
 	
 	IntDat_t InterpInfo;
 	//Assign memory
-	InterpInfo.buffSize = fpSize*sizeof(char);
+	InterpInfo.buffSize = (int)fpSize*sizeof(char);
 	InterpInfo.buff = malloc(InterpInfo.buffSize);
 
 	if(InterpInfo.buff == NULL){
@@ -52,6 +60,10 @@ void Interp_run(char* f){
 	}
 	InterpInfo.buff[InterpInfo.buffSize - 1] = '\0';
 
+	//Close file
+	fclose(fp);
+	fp = NULL;
+
 	//Read the content back to the user:
 	if (I_DEBUG) {
 		printf("Got file content:\n");
@@ -60,25 +72,66 @@ void Interp_run(char* f){
 
 	//Count number of lines
 	int numLines = 0;
+	InterpInfo.labelsLength = 0;
 	for(int i=0; i<InterpInfo.buffSize; i++){
 		if(InterpInfo.buff[i] == '\n')
 			numLines++;
+		if (InterpInfo.buff[i] == ':')
+			InterpInfo.labelsLength++;
 	}
 
 	if (I_DEBUG)
-		printf("%i lines in file\n", numLines);
+		printf("%i lines in file, %i labels\n", numLines, InterpInfo.labelsLength);
 
-	//Close file
-	fclose(fp);
-	fp = NULL;
+	//Assign memory for labels:
+	InterpInfo.labels = malloc(InterpInfo.labelsLength * sizeof(ProgLab_t));
+	//Iterate though and assign labels
+	int startPC = -1; //Set to -1 to indicate no start of label
+	int currentLab = 0;
+	int currentLne = 0;
+	for (int i = 0; i < InterpInfo.buffSize; i++) {
+		if (InterpInfo.buff[i] == '\n')
+			currentLne++;
+
+		if (InterpInfo.buff[i] == ':')
+			startPC = i+1;
+
+		if ((InterpInfo.buff[i] == ';' || InterpInfo.buff[i] == ' ') && startPC != -1) {
+			//Trigger the setup of a new label
+			InterpInfo.labels[currentLab].lineNum = currentLne;
+			InterpInfo.labels[currentLab].name_len = i - startPC + 1;
+
+			//Check that we won't run out of name storage
+			if (InterpInfo.labels[currentLab].name_len <= 65) {
+				memcpy(InterpInfo.labels[currentLab].name, &InterpInfo.buff[startPC], InterpInfo.labels[currentLab].name_len);
+				//Null terminate the string
+				InterpInfo.labels[currentLab].name[InterpInfo.labels[currentLab].name_len - 1] = '\0';
+			}
+
+			startPC = -1;
+			currentLab++;
+		}
+	}
+	if (startPC != -1) {
+		//We somehow managed to not finish a label?
+		printf("A label declaration didn't finish? Continuing anyway\n");
+	}
+
+	if (I_DEBUG) {
+		printf("Got labels:\n");
+		for (int i = 0; i < InterpInfo.labelsLength; i++) {
+			printf("Name: \"%s\" (len:%i), line: %i\n", InterpInfo.labels[i].name, InterpInfo.labels[i].name_len, InterpInfo.labels[i].lineNum);
+		}
+	}
 
 	printf("***** START *****\n");
 	//Enter interpreter loop
 	Interp_exec(&InterpInfo, numLines);
 	printf("***** END *****\n");
 
-	//Free our buffer before we leave
+	//Free our buffers before we leave
 	free(InterpInfo.buff);
+	free(InterpInfo.labels);
 }
 
 void Interp_exec(IntDat_t* store, int numLines){
@@ -236,9 +289,38 @@ InterpAction_t Interp_opcode(char* opcode){
 	if (strcmp(opcode, "peak") == 0) {
 		return ACTION_PEAK;
 	}
-
+	if (strcmp(opcode, "jmpl") == 0) {
+		return ACTION_JMPL;
+	}
+	if (strcmp(opcode, "ret") == 0) {
+		return ACTION_RET;
+	}
 	//We don't know what the opcode meant, so we return ACTION_NONE
 	return ACTION_NONE;
+}
+
+int Interp_pcEOI(IntDat_t* s) {
+	int currentP = s->pc;
+
+	//Increments up to the character before the ;
+	while (s->pc < s->buffSize && s->buff[s->pc] != ';') {
+		currentP++;
+	}
+	currentP++; //Put ourselves on the ;
+
+	return currentP;
+}
+
+int Interp_pcEOL(IntDat_t* s) {
+	int currentP = s->pc;
+
+	//Increments up to the character before the \n
+	while (s->pc < s->buffSize && s->buff[s->pc] != '\n') {
+		currentP++;
+	}
+	currentP++; //Put ourselves on the \n
+
+	return currentP;
 }
 
 void Interp_next(IntDat_t* store){
@@ -393,6 +475,7 @@ char Interp_act(InterpAction_t action, IntDat_t* s, OpDat_t* op){
 	char returnVal = 0;
 	
 	OpDat_t operand; operand.code = NULL;
+	char valS[64];
 	char regA = 0;
 	char regB = 0;
 	int valA = 0;
@@ -401,6 +484,17 @@ char Interp_act(InterpAction_t action, IntDat_t* s, OpDat_t* op){
 	int operandLenAccumulator = op->len;
 	
 	switch(action){
+
+	case ACTION_JMPL:
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		memcpy(valS, operand.code, (operand.len+1)); //+1 for the \0 character
+
+		if (I_DEBUG)
+			printf("JMPL, valS: %s", valS);
+
+		//valA = Interp_getLabelLine(s, &valS, (operand.len + 1));
+		//NOT COMPLETE
+		break;
 
 	case ACTION_PEAK:
 		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);

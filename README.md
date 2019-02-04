@@ -49,7 +49,8 @@ Instructions:
 
 | Command | Details |
 | --- | --- |
-| #<comment>; | Comment line. Not executed |
+| #[comment]; | Comment line. Not executed |
+| :[name]; | Creates a label at this line with <name> |
 | exit; | Exits the currently running program. Takes no operands |
 | hello [person]; | Says hello in the console to [person]. [person] may not contain spaces |
 | con [text]; | Prints [text] to the console. [text] may contain spaces |
@@ -73,6 +74,7 @@ Instructions:
 | svm [r1]; | Saves the value of [r1] to the memory address pointed to by r[1] |
 | rdm [r1]; | Reads the value of memory pointed to by r[1] and stores in [r1] |
 | jmp [ln]; | Jumps to line [ln] of the program |
+| jmpl [name]; | Jumps to label [name] (defined with :[name]) (WIP) |
 | jmpr [+/-]; | Jumps relative to this line [+/-] lines |
 | ife [ln] [r1] [r2]; | Jumps to line [ln] of the program if [r1] == [r2] |
 | ifn [ln] [r1] [r2]; | Jumps to line [ln] of the program if [r1] != [r2] |

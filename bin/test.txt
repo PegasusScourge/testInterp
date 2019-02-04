@@ -17,4 +17,8 @@ set 10 257;
 set 11 5;
 mod 10 11;
 conr 10;
+jmpl test;
+:labelA;
+:label 2;
+:label2  3;
 exit;

@@ -42,7 +42,9 @@ enum InterpAction{
 	ACTION_JMP_REL, //jmpr
 	ACTION_PUSH, //push
 	ACTION_POP, //pop
-	ACTION_PEAK //peak
+	ACTION_PEAK, //peak
+	ACTION_JMPL, //jmpl
+	ACTION_RET, //ret
 };
 
 typedef struct OpcodeData OpDat_t;
@@ -51,14 +53,25 @@ struct OpcodeData{
 	int len;
 };
 
+typedef struct ProgramLabel ProgLab_t;
+struct ProgramLabel {
+	char name[65]; //Labels may be 64 characters in length (+1 for \0)
+	int name_len;
+	int lineNum;
+};
+
 typedef struct InterpData IntDat_t;
 struct InterpData{
 	char* buff;
-	long buffSize;
+	int buffSize;
+
+	ProgLab_t* labels;
+	int labelsLength;
+
 	short memory[INTERP_MEM_SIZE]; //8kB of memory, 2 bytes per space
 	short stack[INTERP_STACK_SIZE];
 	short reg[16]; //16 registers, 2 Bytes each
-	long pc; //Program counter
+	int pc; //Program counter
 	int currentLine;
 	int sp;
 };
@@ -90,7 +103,7 @@ char Interp_act(InterpAction_t, IntDat_t*, OpDat_t*);
 /* Gets the next operand in the current instruction, returns the length of the operand (also stored in OpDat_t) */
 int Interp_getNextOperand(OpDat_t*, char*, int);
 
-/* Executes a jump forwards or backwards by <int> opcodes (techincally lines too) */
+/* Executes a jump forwards or backwards by <int> opcodes (techincally lines) */
 void Interp_execJmp(int, IntDat_t*);
 
 /* Checks for write permission on register */
