@@ -50,7 +50,7 @@ Instructions:
 | Command | Details |
 | --- | --- |
 | #[comment]; | Comment line. Not executed |
-| :[name]; | Creates a label at this line with <name>. Cannot contain spaces |
+| :[name]; | Creates a label at this line with [name]. Cannot contain spaces |
 | exit; | Exits the currently running program. Takes no operands |
 | hello [person]; | Says hello in the console to [person]. [person] may not contain spaces |
 | con [text]; | Prints [text] to the console. [text] may contain spaces |
