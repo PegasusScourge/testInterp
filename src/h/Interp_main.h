@@ -48,6 +48,7 @@ enum InterpAction{
 	ACTION_FUNC, //func
 	ACTION_ECHOC, //conc
 	ACTION_ECHOV, //conv
+	ACTION_IF, //if
 };
 
 typedef struct OpcodeData OpDat_t;
@@ -142,3 +143,6 @@ int Interp_pcEOI(IntDat_t*);
 
 /* Searches the labels and finds the requisite one */
 ProgLab_t* Interp_getLabel(IntDat_t*, char*, int);
+
+/* Searches the labels and finds the requisite one after the line specified */
+ProgLab_t* Interp_getLabelAfter(IntDat_t*, char*, int, int);

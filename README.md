@@ -9,8 +9,11 @@ A fuller description of the language is detailed below.
 The interpreter itself uses a register-based design, with 8kB of memory allocated to the program for use, in 2 byte blocks.
 The registers are detailed in a lower section.
 
-#### Example call
-```testInterp test.txt 1```: this would load the file `test.txt` and enable debugging; 0 instead of 1 would disable debugging. This last argument may also be ommited
+#### Calling the interpreter (cmd line only)
+```interp(.exe) [file] [debug=0]```
+
+[file] specifies the file to load and run. Can have any file extension.
+[debug] defaults to 0 and may be ommitted. `1` enables debugging mode for the console output.
 
 #### Flow
 The actions of the interpreter as follows:
@@ -40,12 +43,12 @@ There is a variable number of operands possible after an opcode, meaning no fixe
 The language is capable of dealing with both '\n' and '\r\n' character returns, but requires the presence of the '\n' newline char at the end of each line.
 
 #### Instruction set
-Notes:
+##### Notes:
 * Register numbers e.g. <r1>, <r2> are written as numbers, e.g. '1', '10', '12' etc.
 * Comments may also be placed after ; characters
 * Files must end in a new line
 
-Instructions:
+###### Instructions:
 
 | Command | Details |
 | --- | --- |
@@ -80,6 +83,7 @@ Instructions:
 | func [name]; | Jumps to label [name] and stores the data for returning to this call (see `ret`) on the stack |
 | ret; | Returns from `func` jump |
 | jmpr [+/-]; | Jumps relative to this line [+/-] lines |
+| if [e/n/l/m] [r1] [r2]; | Executes the code following the if statement if [r1] [== / != / \< / \>] [r2]. Terminated with `:endif` label |
 | ife [ln] [r1] [r2]; | Jumps to line [ln] of the program if [r1] == [r2] |
 | ifn [ln] [r1] [r2]; | Jumps to line [ln] of the program if [r1] != [r2] |
 | ifl [ln] [r1] [r2]; | Jumps to line [ln] of the program if [r1] < [r2] |
@@ -87,3 +91,14 @@ Instructions:
 | push [r1] | Pushes the value of [r1] to the stack |
 | pop [r1] | Pops the value on top of the stack and stores in [r1] |
 | peak [r1] | Peaks at the value on top of the stack (doesn't pop) and stores in [r1] |
+
+#### Todo list:
+- [ ] Add a graphical output other than the console
+- [ ] Give this a project a proper name
+- [ ] Fix `conc` so it actually displays what it is supposed to
+- [ ] Give the language a proper name
+- [ ] Implement multiple commands per line
+- [ ] Create a CHANGELOG
+- [ ] Implement errors and the error register
+- [ ] Implement overflow/remainder register capturing the lost bit in a bitshift
+- [ ] Implement a better way of searching commands and operands that is extensible (will allow multiple commands per line)

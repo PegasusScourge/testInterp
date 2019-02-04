@@ -305,9 +305,16 @@ InterpAction_t Interp_opcode(char* opcode){
 	if (strcmp(opcode, "conv") == 0) {
 		return ACTION_ECHOV;
 	}
+	if (strcmp(opcode, "if") == 0) {
+		return ACTION_IF;
+	}
 
 	if (opcode[0] == '#') {
 		//We detected a comment!
+		return ACTION_NONE;
+	}
+	if (opcode[0] == ':') {
+		//We detected a label!
 		return ACTION_NONE;
 	}
 
@@ -510,6 +517,18 @@ ProgLab_t* Interp_getLabel(IntDat_t* s, char* st, int sLen) {
 	return label;
 }
 
+ProgLab_t* Interp_getLabelAfter(IntDat_t* s, char* st, int sLen, int line) {
+	ProgLab_t* label = NULL;
+
+	for (int i = 0; i < s->labelsLength; i++) {
+		if (strcmp(s->labels[i].name, st) == 0 && s->labels[i].lineNum >= line) {
+			label = &s->labels[i];
+		}
+	}
+
+	return label;
+}
+
 char Interp_act(InterpAction_t action, IntDat_t* s, OpDat_t* op){
 	char returnVal = 0;
 	
@@ -539,6 +558,44 @@ char Interp_act(InterpAction_t action, IntDat_t* s, OpDat_t* op){
 		}
 		else {
 			//Throw label not found exception
+		}
+	}	break;
+
+	case ACTION_IF: {
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		memcpy(valS, operand.code, (operand.len + 1)); //+1 for the \0 character
+		valS[operand.len] = '\0';
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		regA = (char)strtol(operand.code, NULL, 10); //Register 1
+		operandLenAccumulator += Interp_getNextOperand(&operand, s->buff, s->pc + operandLenAccumulator);
+		regB = (char)strtol(operand.code, NULL, 10); //Register 2
+
+		char validIfFunc = FALSE;
+		char skip = TRUE;
+		//Skip is set to the inverse of the statement we are testing for; therefore if we are looking for ==, we set skip to the evaluation of !=
+		if (strcmp(valS, "e") == 0 && Interp_regReadPerm(regA) && Interp_regReadPerm(regB)) {
+			validIfFunc = TRUE;
+			skip = (s->reg[regA] != s->reg[regB]);
+		}
+		if (strcmp(valS, "n") == 0 && Interp_regReadPerm(regA) && Interp_regReadPerm(regB)) {
+			validIfFunc = TRUE;
+			skip = (s->reg[regA] == s->reg[regB]);
+		}
+		if (strcmp(valS, "l") == 0 && Interp_regReadPerm(regA) && Interp_regReadPerm(regB)) {
+			validIfFunc = TRUE;
+			skip = (s->reg[regA] >= s->reg[regB]);
+		}
+		if (strcmp(valS, "m") == 0 && Interp_regReadPerm(regA) && Interp_regReadPerm(regB)) {
+			validIfFunc = TRUE;
+			skip = (s->reg[regA] <= s->reg[regB]);
+		}
+
+		if (validIfFunc && skip) {
+			//Skip to the next :endif
+			ProgLab_t* lab = Interp_getLabelAfter(s, "endif\0", 6, s->currentLine);
+			if (lab) {
+				Interp_execJmp(lab->lineNum - 1, s);
+			}
 		}
 	}	break;
 
@@ -672,8 +729,17 @@ char Interp_act(InterpAction_t action, IntDat_t* s, OpDat_t* op){
 		if (I_DEBUG)
 			printf("ECHOC\n");
 
-		if (Interp_regReadPerm(regA))
-			printf("%c", (char)s->reg[regA]);
+		if (Interp_regReadPerm(regA)) {
+			if ((s->reg[regA] & 0xFF00) >> 8 == 0) {
+				//Print just the lower part of the reg value
+				printf("%c", s->reg[regA] & 0x00FF);
+			}
+			else {
+				printf("%c", (s->reg[regA] & 0xFF00) >> 8);
+				printf("%c", s->reg[regA] & 0x00FF);
+			}
+		}
+			
 		break;
 
 	case ACTION_SET_REG:
