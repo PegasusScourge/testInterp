@@ -6,7 +6,7 @@ The language interpreted is based on assembly language and is written in plain t
 A fuller description of the language is detailed below.
 
 ## Interpeter
-The interpreter itself uses a register-based design, with 8kB of memory allocated to the program for use, in 2 byte blocks.
+The interpreter itself uses a register-based design, with 8kB of memory allocated to the program for use, with a WORD length of 2 bytes.
 The registers are detailed in a lower section.
 
 #### Calling the interpreter (cmd line only)

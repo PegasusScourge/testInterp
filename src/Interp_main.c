@@ -511,6 +511,7 @@ ProgLab_t* Interp_getLabel(IntDat_t* s, char* st, int sLen) {
 	for (int i = 0; i < s->labelsLength; i++) {
 		if (strcmp(s->labels[i].name, st) == 0) {
 			label = &s->labels[i];
+			break;
 		}
 	}
 
@@ -523,6 +524,7 @@ ProgLab_t* Interp_getLabelAfter(IntDat_t* s, char* st, int sLen, int line) {
 	for (int i = 0; i < s->labelsLength; i++) {
 		if (strcmp(s->labels[i].name, st) == 0 && s->labels[i].lineNum >= line) {
 			label = &s->labels[i];
+			break;
 		}
 	}
 
